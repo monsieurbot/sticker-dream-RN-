@@ -4,12 +4,10 @@
     "slug": "sticker-dream",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
     "scheme": "stickerdream",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFE5F1"
     },
@@ -32,7 +30,6 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFE5F1"
       },
       "package": "com.stickerdream.app",
@@ -49,8 +46,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "static"
     },
     "plugins": [
       "expo-router",
@@ -62,13 +58,6 @@
       ],
       [
         "@react-native-google-signin/google-signin"
-      ],
-      [
-        "react-native-bluetooth-escpos-printer",
-        {
-          "isBackgroundEnabled": true,
-          "bluetoothAlwaysPermission": "Allow Sticker Dream to connect to your Bluetooth printer"
-        }
       ]
     ],
     "experiments": {
