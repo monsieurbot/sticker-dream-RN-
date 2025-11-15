@@ -1,6 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, PermissionsAndroid } from 'react-native';
-import { BluetoothEscposPrinter } from 'react-native-bluetooth-escpos-printer';
+
+// Safe import for Bluetooth module (may not work on simulators)
+let BluetoothEscposPrinter: any;
+try {
+  BluetoothEscposPrinter = require('react-native-bluetooth-escpos-printer').BluetoothEscposPrinter;
+} catch (error) {
+  // Mock for simulator/environments where native module is not available
+  BluetoothEscposPrinter = {
+    init: () => Promise.resolve(),
+    scanDevices: () => Promise.resolve({ paired: [], found: [] }),
+    connect: () => Promise.resolve(),
+    disconnect: () => Promise.resolve(),
+    printText: () => Promise.resolve(),
+    printPic: () => Promise.resolve(),
+    printerAlign: () => Promise.resolve(),
+    setBlob: () => Promise.resolve(),
+  };
+  console.warn('BluetoothEscposPrinter not available (running on simulator?). Using mock implementation.');
+}
 
 // Type definitions
 export interface BluetoothPrinterDevice {
