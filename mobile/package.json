@@ -28,12 +28,13 @@
     "react-native-dotenv": "^3.4.11",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-screens": "~4.6.0",
-    "web-streams-polyfill": "^4.2.0",
+    "web-streams-polyfill": "^3.3.3",
     "whisper.rn": "^0.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@types/react": "~19.1.0",
+    "babel-preset-expo": "^54.0.7",
     "typescript": "~5.9.2"
   },
   "private": true
