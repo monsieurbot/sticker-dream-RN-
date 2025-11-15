@@ -14,7 +14,6 @@ export type LanguageCode =
   | 'it' // Italian
   | 'pt' // Portuguese
   | 'nl' // Dutch
-  | 'ru' // Russian
   | 'zh' // Chinese
   | 'ja' // Japanese
   | 'ko' // Korean
@@ -203,13 +202,6 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
     name: 'Dutch',
     nativeName: 'Nederlands',
     flag: '🇳🇱',
-    requiresMultilingual: true,
-  },
-  {
-    code: 'ru',
-    name: 'Russian',
-    nativeName: 'Русский',
-    flag: '🇷🇺',
     requiresMultilingual: true,
   },
   {
