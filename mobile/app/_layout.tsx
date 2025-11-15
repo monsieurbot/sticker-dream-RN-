@@ -158,7 +158,6 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerShown: false,
-            animationEnabled: true,
             gestureEnabled: true,
           }}
         >
@@ -168,7 +167,6 @@ export default function RootLayout() {
               name="welcome"
               options={{
                 title: 'Welcome',
-                animationTypeForReplace: 'push',
               }}
             />
           ) : !authState?.isSignedIn ? (
@@ -177,7 +175,6 @@ export default function RootLayout() {
               name="index"
               options={{
                 title: 'Sign In',
-                animationTypeForReplace: isLoading ? 'pop' : 'slide_from_right',
               }}
             />
           ) : (
@@ -186,7 +183,6 @@ export default function RootLayout() {
               name="(main)"
               options={{
                 title: 'Main App',
-                animationTypeForReplace: 'pop',
               }}
             />
           )}

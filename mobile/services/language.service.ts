@@ -4,7 +4,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import { documentDirectory } from 'expo-file-system/legacy';
 import {
   LanguageCode,
   LanguagePreference,
@@ -33,7 +34,7 @@ const DEFAULT_LANGUAGE: LanguageCode = 'en';
 const DEFAULT_MODEL: WhisperModelType = 'tiny.en';
 
 // Models directory
-const MODELS_DIR = `${FileSystem.documentDirectory}whisper_models/`;
+const MODELS_DIR = `${documentDirectory ?? ''}whisper_models/`;
 
 /**
  * Language Service Class

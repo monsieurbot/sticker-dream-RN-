@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform, PermissionsAndroid } from 'react-native';
+import { Platform, PermissionsAndroid, Permission } from 'react-native';
 import { BluetoothEscposPrinter } from 'react-native-bluetooth-escpos-printer';
 
 // Type definitions
@@ -31,7 +31,7 @@ type PermissionStatus = 'granted' | 'denied' | 'never_asked_again';
 
 class PrinterService {
   private connectedPrinter: BluetoothPrinterDevice | null = null;
-  private scanTimeout: NodeJS.Timeout | null = null;
+  private scanTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly STORAGE_KEY = 'connected_printer_info';
   private readonly PHOMEMO_PM2_WIDTH = 384; // pixels
   private readonly SCAN_TIMEOUT = 10000; // 10 seconds
@@ -42,20 +42,20 @@ class PrinterService {
   private async requestBluetoothPermissions(): Promise<boolean> {
     if (Platform.OS === 'android') {
       const androidVersion = Platform.Version as number;
-      const permissions = [];
+      const permissions: Permission[] = [];
 
       // Android 12+ requires BLUETOOTH_SCAN and BLUETOOTH_CONNECT
       if (androidVersion >= 31) {
         permissions.push(
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN as Permission,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT as Permission
         );
       }
 
       // Required for both old and new Android versions
       permissions.push(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION as Permission,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION as Permission
       );
 
       try {

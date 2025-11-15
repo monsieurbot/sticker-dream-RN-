@@ -101,7 +101,6 @@ class AuthService {
       GoogleSignin.configure({
         webClientId: GOOGLE_WEB_CLIENT_ID,
         iosClientId: GOOGLE_IOS_CLIENT_ID,
-        androidClientId: GOOGLE_ANDROID_CLIENT_ID,
         scopes: Array.from(OAUTH_SCOPES),
         offlineAccess: true,
         forceCodeForRefreshToken: true,
@@ -138,23 +137,28 @@ class AuthService {
       const userInfo = await GoogleSignin.signIn();
       const tokens = await GoogleSignin.getTokens();
 
+      // Validate user data
+      if (!userInfo.data) {
+        throw new AuthenticationError('Sign in failed: no user data received', 'SIGN_IN_FAILED');
+      }
+
       // Parse and validate user data
       const googleUser: GoogleUser = {
-        id: userInfo.user.id,
-        name: userInfo.user.name || '',
-        email: userInfo.user.email,
-        photo: userInfo.user.photo,
-        givenName: userInfo.user.givenName || '',
-        familyName: userInfo.user.familyName || '',
+        id: userInfo.data.user.id,
+        name: userInfo.data.user.name || '',
+        email: userInfo.data.user.email,
+        photo: userInfo.data.user.photo,
+        givenName: userInfo.data.user.givenName || '',
+        familyName: userInfo.data.user.familyName || '',
       };
 
-      // Calculate token expiration time
-      const expiresAt = Date.now() + (tokens.accessTokenExpiresIn || 3600) * 1000;
+      // Calculate token expiration time (default to 1 hour)
+      const expiresAt = Date.now() + 3600 * 1000;
 
       const authTokens: AuthTokens = {
         accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken || null,
-        idToken: userInfo.idToken || '',
+        refreshToken: null,
+        idToken: userInfo.data.idToken || '',
         expiresAt,
       };
 
@@ -310,7 +314,8 @@ class AuthService {
         }
       }
 
-      const isGoogleSignedIn = await GoogleSignin.isSignedIn();
+      const googleUser = await GoogleSignin.getCurrentUser();
+      const isGoogleSignedIn = googleUser !== null;
       return isGoogleSignedIn && hasValidTokens;
     } catch {
       return false;
@@ -402,7 +407,8 @@ class AuthService {
       // Verify with Google Sign-In that session is still valid
       if (tokens) {
         try {
-          const isStillSignedIn = await GoogleSignin.isSignedIn();
+          const googleUser = await GoogleSignin.getCurrentUser();
+          const isStillSignedIn = googleUser !== null;
           if (!isStillSignedIn) {
             // Clear stored data if not signed in with Google
             this.currentUser = null;
@@ -434,11 +440,12 @@ class AuthService {
         throw new TokenRefreshError('Failed to retrieve new access token');
       }
 
-      const expiresAt = Date.now() + (tokens.accessTokenExpiresIn || 3600) * 1000;
+      // Default to 1 hour expiration
+      const expiresAt = Date.now() + 3600 * 1000;
 
       this.currentTokens = {
         accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken || this.currentTokens?.refreshToken || null,
+        refreshToken: this.currentTokens?.refreshToken || null,
         idToken: this.currentTokens?.idToken || '',
         expiresAt,
       };

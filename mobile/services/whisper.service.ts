@@ -387,12 +387,12 @@ class WhisperService {
     for (const command of this.abortWords) {
       // Check for exact word match
       if (upperText === command) {
-        return { isAbort: true, abortCommand: command };
+        return { isAbort: true, abortCommand: command as AbortCommand };
       }
 
       // Check for command at the beginning of text (common speech patterns)
       if (upperText.startsWith(command + ' ') || upperText.startsWith(command + '.')) {
-        return { isAbort: true, abortCommand: command };
+        return { isAbort: true, abortCommand: command as AbortCommand };
       }
     }
 
@@ -401,7 +401,7 @@ class WhisperService {
       // Find which abort command was mentioned
       for (const command of this.abortWords) {
         if (upperText.includes(' ' + command) || upperText.includes(command + ' ')) {
-          return { isAbort: true, abortCommand: command };
+          return { isAbort: true, abortCommand: command as AbortCommand };
         }
       }
     }
@@ -593,8 +593,5 @@ export async function reloadModel(): Promise<void> {
 export async function cleanup(): Promise<void> {
   return whisperService.cleanup();
 }
-
-// Export types for use in components
-export type { TranscriptionResult, TranscriptionProgress, TranscriptionProgressCallback, AbortCommand };
 
 export default whisperService;

@@ -9,13 +9,9 @@ import {
   View,
   Text,
   Animated,
-  PressResponderConfig,
-  PressResponder,
   Pressable,
   StyleSheet,
   Dimensions,
-  AccessibilityRole,
-  AccessibilityHint,
 } from 'react-native';
 
 export type RecordButtonState =
@@ -261,7 +257,6 @@ const RecordButton: React.FC<RecordButtonProps> = ({
           accessibilityHint={customAccessibilityHint || stateConfig.accessibilityHint}
           accessibilityState={{
             disabled: disabled || isLoading,
-            pressed: isPressed,
           }}
         >
           <Text

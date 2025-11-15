@@ -44,7 +44,6 @@ export default function MainLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animationEnabled: true,
         gestureEnabled: true,
       }}
     >
@@ -61,7 +60,6 @@ export default function MainLayout() {
         name="printer"
         options={{
           title: 'Connect Printer',
-          animationTypeForReplace: 'slide_from_right',
         }}
       />
 
@@ -70,7 +68,6 @@ export default function MainLayout() {
         name="settings"
         options={{
           title: 'Settings',
-          animationTypeForReplace: 'slide_from_right',
         }}
       />
     </Stack>

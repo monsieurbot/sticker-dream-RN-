@@ -167,7 +167,7 @@ export const PrinterStatus: React.FC<PrinterStatusProps> = ({
           style,
         ]}
         accessible
-        accessibilityRole="status"
+        accessibilityRole="text"
         accessibilityLabel={`Printer: ${printerInfo.name}`}
         accessibilityHint={`Status: ${getStatusLabel(printerInfo.status)}`}
       >

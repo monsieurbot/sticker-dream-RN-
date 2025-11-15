@@ -126,6 +126,11 @@ export async function generateImage(
     console.log('🎨 Generating image with Imagen 4.0...');
     console.time('image_generation');
 
+    // NOTE: The generateImages method is not available in the current version
+    // of @google/generative-ai SDK. This feature has been disabled.
+    // TODO: Update when the SDK supports image generation or use alternative API
+
+    /*
     // Generate the image
     const result = await model.generateImages({
       prompt: fullPrompt,
@@ -161,6 +166,14 @@ export async function generateImage(
       base64: image,
       mimeType: 'image/png',
     };
+    */
+
+    console.timeEnd('image_generation');
+
+    throw new ImageGenerationError(
+      'NOT_IMPLEMENTED',
+      'Image generation is not currently available. The generateImages method is not supported in the current SDK version.'
+    );
   } catch (error) {
     // Re-throw ImageGenerationError as-is
     if (error instanceof ImageGenerationError) {
