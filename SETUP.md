@@ -2,16 +2,21 @@
 
 ## ✅ Changements effectués par Claude
 
-- ✅ React 19.1.0 → 18.3.1 (compatible avec React Native 0.81.5)
-- ✅ **Désactivation de la nouvelle architecture RN** (`newArchEnabled: false`)
+- ✅ **Downgrade Expo SDK 54 → SDK 52** (compatible avec React 18)
+- ✅ **Downgrade React Native 0.81 → 0.76.9** (compatible avec React 18)
+- ✅ React 19.1.0 → 18.3.1 (stable et testé)
+- ✅ Désactivation de la nouvelle architecture RN (`newArchEnabled: false`)
 - ✅ Correction de toutes les erreurs TypeScript
 - ✅ Migration de pnpm → npm
 - ✅ Ajout de expo-linking (manquant)
 - ✅ Fix des API @react-native-google-signin v13
 - ✅ Création des type declarations pour whisper.rn et bluetooth printer
+- ✅ Fix expo-file-system API (pas de /legacy dans SDK 52)
 
-**Pourquoi désactiver la nouvelle architecture ?**
-La nouvelle architecture React Native (Fabric) nécessite React 19, mais React 19 a des bugs de compatibilité. React 18.3.1 fonctionne parfaitement avec l'ancienne architecture (bridge mode).
+**Pourquoi downgrader Expo SDK ?**
+- Expo SDK 54 utilise React Native 0.81 qui **nécessite React 19**
+- Expo SDK 52 utilise React Native 0.76 qui **supporte React 18.3.1**
+- React 18 est stable et sans bugs de compatibilité
 
 ## 📋 Étapes à suivre sur ton Mac
 
@@ -162,13 +167,34 @@ ERROR [runtime not ready]: TypeError: ReactRefreshRuntime.injectIntoGlobalHook i
 - ✅ App démarre correctement sur iOS
 - ✅ Bundle TypeScript compile sans erreurs
 
+## 📊 Versions utilisées (FINALES)
+
+```json
+{
+  "expo": "~52.0.0",
+  "react": "18.3.1",
+  "react-native": "0.76.9",
+  "react-dom": "18.3.1",
+  "@types/react": "~18.3.0"
+}
+```
+
+**Matrice de compatibilité:**
+| Expo SDK | React Native | React | Statut |
+|----------|--------------|-------|--------|
+| SDK 54 | 0.81.x | 19.x | ❌ React 19 a des bugs |
+| SDK 53 | 0.79.x | 19.x | ❌ React 19 requis |
+| **SDK 52** | **0.76.x** | **18.3.1** | ✅ **Stable et testé** |
+| SDK 51 | 0.74.x | 18.2.x | ✅ Fonctionne mais ancien |
+
 ## ⚠️ Notes importantes
 
 1. **Toujours utiliser npm avec --legacy-peer-deps** pour les installations
 2. **Ne jamais revenir à pnpm** (c'est maintenant configuré pour npm)
 3. **Le .env est gitignored** - ne le commit jamais (credentials sensibles)
-4. **React 18.3.1 est la bonne version** - ne pas upgrader à React 19
-5. **newArchEnabled DOIT rester à false** - ne pas activer la nouvelle architecture avec React 18
+4. **React 18.3.1 est la bonne version** - NE PAS upgrader à React 19
+5. **Expo SDK 52 est la bonne version** - NE PAS upgrader à SDK 53/54
+6. **newArchEnabled DOIT rester à false** - ne pas activer la nouvelle architecture avec React 18
 
 ## ✅ Vérification que tout fonctionne
 
