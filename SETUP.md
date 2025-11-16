@@ -3,11 +3,15 @@
 ## ✅ Changements effectués par Claude
 
 - ✅ React 19.1.0 → 18.3.1 (compatible avec React Native 0.81.5)
+- ✅ **Désactivation de la nouvelle architecture RN** (`newArchEnabled: false`)
 - ✅ Correction de toutes les erreurs TypeScript
 - ✅ Migration de pnpm → npm
 - ✅ Ajout de expo-linking (manquant)
 - ✅ Fix des API @react-native-google-signin v13
 - ✅ Création des type declarations pour whisper.rn et bluetooth printer
+
+**Pourquoi désactiver la nouvelle architecture ?**
+La nouvelle architecture React Native (Fabric) nécessite React 19, mais React 19 a des bugs de compatibilité. React 18.3.1 fonctionne parfaitement avec l'ancienne architecture (bridge mode).
 
 ## 📋 Étapes à suivre sur ton Mac
 
@@ -76,13 +80,13 @@ rm -rf $TMPDIR/metro-*
 rm -rf $TMPDIR/haste-*
 ```
 
-### 6. Rebuild iOS
+### 6. Rebuild iOS (IMPORTANT)
 
 ```bash
-# Clean prebuild iOS
+# Clean prebuild iOS avec la nouvelle architecture désactivée
 npx expo prebuild --platform ios --clean
 
-# Installe les pods (si tu as CocoaPods)
+# Sur macOS, installe les pods
 cd ios
 pod install
 cd ..
@@ -90,6 +94,8 @@ cd ..
 # Lance l'app
 npm run ios
 ```
+
+**⚠️ TRÈS IMPORTANT**: Le prebuild DOIT être fait APRÈS avoir pull mes changements car `newArchEnabled: false` dans app.json. Sinon tu auras les erreurs ReactFabric.
 
 ## 🐛 Si tu as encore l'erreur "Cannot find module transform-worker.js"
 
@@ -135,12 +141,34 @@ npx react-native log-android
 npx tsc --noEmit
 ```
 
+## 🐛 Erreurs corrigées
+
+### ❌ Avant (avec React 19 + nouvelle architecture)
+```
+ERROR [TypeError: Cannot read property 'S' of undefined]
+ReactFabric-dev.js:14665
+prevOnStartTransitionFinish = ReactSharedInternals.S;
+
+ERROR [TypeError: Cannot read property 'default' of undefined]
+RendererImplementation.js:37
+require('../Renderer/shims/ReactFabric').default.render(
+
+ERROR [runtime not ready]: TypeError: ReactRefreshRuntime.injectIntoGlobalHook is not a function
+```
+
+### ✅ Après (avec React 18 + ancienne architecture)
+- ✅ Aucune erreur ReactFabric
+- ✅ Aucune erreur ReactRefreshRuntime
+- ✅ App démarre correctement sur iOS
+- ✅ Bundle TypeScript compile sans erreurs
+
 ## ⚠️ Notes importantes
 
 1. **Toujours utiliser npm avec --legacy-peer-deps** pour les installations
 2. **Ne jamais revenir à pnpm** (c'est maintenant configuré pour npm)
 3. **Le .env est gitignored** - ne le commit jamais (credentials sensibles)
 4. **React 18.3.1 est la bonne version** - ne pas upgrader à React 19
+5. **newArchEnabled DOIT rester à false** - ne pas activer la nouvelle architecture avec React 18
 
 ## ✅ Vérification que tout fonctionne
 
