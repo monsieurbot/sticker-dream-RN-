@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "stickerdream",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#FFE5F1"
