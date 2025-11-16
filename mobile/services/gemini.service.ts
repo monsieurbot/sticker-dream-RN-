@@ -265,8 +265,8 @@ export async function generateImageToFile(
   filePath: string
 ): Promise<string> {
   try {
-    // Import FileSystem from Expo (lazy load to handle environments without it)
-    const { writeAsStringAsync } = await import('expo-file-system');
+    // Import FileSystem from Expo
+    const { writeAsStringAsync } = require('expo-file-system');
 
     const result = await generateImage(prompt, accessToken);
 

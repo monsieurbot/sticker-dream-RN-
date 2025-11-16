@@ -4,8 +4,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system/legacy';
-import { documentDirectory } from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
+import { documentDirectory } from 'expo-file-system';
 import {
   LanguageCode,
   LanguagePreference,
@@ -269,7 +269,7 @@ class LanguageService {
         model.downloadUrl,
         filePath,
         {},
-        (downloadProgress) => {
+        (downloadProgress: FileSystem.DownloadProgressData) => {
           const { totalBytesWritten, totalBytesExpectedToWrite } = downloadProgress;
 
           // Calculate speed
