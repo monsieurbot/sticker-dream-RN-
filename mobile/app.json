@@ -18,6 +18,8 @@
         "NSMicrophoneUsageDescription": "Sticker Dream needs microphone access to record your sticker descriptions",
         "NSBluetoothAlwaysUsageDescription": "Sticker Dream needs Bluetooth access to print to your thermal printer",
         "NSBluetoothPeripheralUsageDescription": "Sticker Dream needs Bluetooth access to connect to your thermal printer",
+        "NSLocalNetworkUsageDescription": "Sticker Dream needs local network access to connect to the development server",
+        "NSBonjourServices": ["_http._tcp"],
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
