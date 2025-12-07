@@ -4,6 +4,7 @@
     "slug": "sticker-dream",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "stickerdream",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
@@ -14,6 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.stickerdream.app",
+      "appleTeamId": "5F3F3Q9Y2Q",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Sticker Dream needs microphone access to record your sticker descriptions",
         "NSBluetoothAlwaysUsageDescription": "Sticker Dream needs Bluetooth access to print to your thermal printer",
@@ -23,7 +25,7 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.YOUR_CLIENT_ID"
+              "com.googleusercontent.apps.781487573862-p1gi5tdn1hhj12j2erdpu9euh8ajr1cm"
             ]
           }
         ]
@@ -60,7 +62,9 @@
       ],
       [
         "@react-native-google-signin/google-signin"
-      ]
+      ],
+      "./plugins/withWhisper.js",
+      "./plugins/withBluetoothPrinter.js"
     ],
     "experiments": {
       "typedRoutes": true

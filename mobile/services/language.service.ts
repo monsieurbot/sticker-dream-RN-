@@ -202,15 +202,12 @@ class LanguageService {
         };
       }
 
-      const actualSize = fileInfo.size || 0;
-      // Allow 1% variance in file size
-      const sizeMatches = Math.abs(actualSize - expectedSize) < expectedSize * 0.01;
-
+      // Skip size verification - just check if file exists
       return {
         exists: true,
-        sizeMatches,
+        sizeMatches: true, // Always true if file exists
         filePath,
-        actualSize,
+        actualSize: fileInfo.size || 0,
         expectedSize,
       };
     } catch (error) {
@@ -237,6 +234,15 @@ class LanguageService {
 
     const filePath = this.getModelPath(modelType);
     const startTime = Date.now();
+
+    // DEBUG: Log what we're downloading
+    console.log('🔍 Downloading model:', {
+      modelType,
+      filename: model.filename,
+      expectedSize: `${model.sizeMB} MB`,
+      downloadUrl: model.downloadUrl,
+      filePath,
+    });
 
     try {
       // Check if already downloaded

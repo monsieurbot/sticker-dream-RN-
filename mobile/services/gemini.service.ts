@@ -123,57 +123,78 @@ export async function generateImage(
     // Create the prompt using the exact template from the original web app
     const fullPrompt = createPromptTemplate(prompt);
 
-    console.log('🎨 Generating image with Imagen 4.0...');
+    console.log('🎨 Generating image with Gemini 2.5 Flash...');
     console.time('image_generation');
 
-    // NOTE: The generateImages method is not available in the current version
-    // of @google/generative-ai SDK. This feature has been disabled.
-    // TODO: Update when the SDK supports image generation or use alternative API
+    // Use Gemini 2.5 Flash Image model with generateContent
+    // This uses the user's OAuth token, so each user has their own 100 images/day free quota
+    const imageModel = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-image',
+    });
 
-    /*
-    // Generate the image
-    const result = await model.generateImages({
-      prompt: fullPrompt,
-      config: {
-        numberOfImages: 1,
-        aspectRatio: '9:16',
+    // Generate the image using generateContent with image response modality
+    const result = await imageModel.generateContent({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: fullPrompt,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: 'image/png',
       },
     });
 
     console.timeEnd('image_generation');
 
+    const response = result.response;
+
     // Validate the response
-    if (!result || !result.images || result.images.length === 0) {
+    if (!response) {
       throw new ImageGenerationError(
-        'NO_IMAGES_GENERATED',
-        'Imagen API returned no images'
+        'NO_RESPONSE',
+        'Gemini API returned no response'
       );
     }
 
-    const image = result.images[0];
+    // Extract image data from the response
+    // The image is returned as inline data in the first candidate
+    const candidate = response.candidates?.[0];
+    if (!candidate) {
+      throw new ImageGenerationError(
+        'NO_CANDIDATES',
+        'Gemini API returned no candidates'
+      );
+    }
 
-    // Extract base64 image data
-    if (!image || typeof image !== 'string') {
+    const imagePart = candidate.content?.parts?.[0];
+    if (!imagePart || !imagePart.inlineData) {
+      throw new ImageGenerationError(
+        'NO_IMAGE_DATA',
+        'No image data found in response'
+      );
+    }
+
+    const base64Image = imagePart.inlineData.data;
+    const mimeType = imagePart.inlineData.mimeType || 'image/png';
+
+    if (!base64Image) {
       throw new ImageGenerationError(
         'INVALID_IMAGE_FORMAT',
         'Invalid image format returned from API'
       );
     }
 
-    console.log('✅ Image generated successfully');
+    console.log('✅ Image generated successfully with Gemini 2.5 Flash');
 
     return {
-      base64: image,
-      mimeType: 'image/png',
+      base64: base64Image,
+      mimeType: mimeType,
     };
-    */
-
-    console.timeEnd('image_generation');
-
-    throw new ImageGenerationError(
-      'NOT_IMPLEMENTED',
-      'Image generation is not currently available. The generateImages method is not supported in the current SDK version.'
-    );
   } catch (error) {
     // Re-throw ImageGenerationError as-is
     if (error instanceof ImageGenerationError) {

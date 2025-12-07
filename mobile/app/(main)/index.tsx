@@ -19,10 +19,12 @@ import {
   transcribeAudio,
   isRecording,
   cancelRecording,
+  isWhisperReady,
+  initWhisper,
   TranscriptionResult,
 } from '../../services/whisper.service';
 import { generateImageAsDataUri, ImageGenerationError } from '../../services/gemini.service';
-import { printerService, ConnectedPrinterInfo } from '../../services/printer.service';
+import type { ConnectedPrinterInfo } from '../../services/printer.service';
 import { getAccessToken, signOut } from '../../services/auth.service';
 import { useAuth } from '../_layout';
 import { THEME } from '../_layout';
@@ -39,6 +41,21 @@ interface ProcessingState {
 }
 
 const { width: screenWidth } = Dimensions.get('window');
+
+// Lazy load printer service to avoid crashes if Bluetooth module isn't available
+let printerServiceInstance: any = null;
+const getPrinterService = async () => {
+  if (!printerServiceInstance) {
+    try {
+      const { printerService } = await import('../../services/printer.service');
+      printerServiceInstance = printerService;
+    } catch (error) {
+      console.warn('Printer service not available:', error);
+      return null;
+    }
+  }
+  return printerServiceInstance;
+};
 
 /**
  * Main Screen - Orchestrates all services
@@ -90,8 +107,11 @@ export default function MainScreen() {
   useEffect(() => {
     const checkPrinterConnection = async () => {
       try {
-        const printer = await printerService.getConnectedPrinter();
-        setConnectedPrinter(printer);
+        const service = await getPrinterService();
+        if (service) {
+          const printer = await service.getConnectedPrinter();
+          setConnectedPrinter(printer);
+        }
       } catch (error) {
         console.warn('Error checking printer connection:', error);
       }
@@ -103,32 +123,10 @@ export default function MainScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  // Play sound effect
+  // Play sound effect (temporarily disabled - audio files not available)
   const playSound = async (soundType: 'press' | 'loading' | 'finished') => {
-    if (!soundLoaded) return;
-
-    try {
-      const soundMap = {
-        press: require('../../assets/sounds/press.mp3'),
-        loading: require('../../assets/sounds/loading.mp3'),
-        finished: require('../../assets/sounds/finished.wav'),
-      };
-
-      const soundFile = soundMap[soundType];
-
-      // Unload previous sound
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-      }
-
-      // Load and play new sound
-      const { sound } = await Audio.Sound.createAsync(soundFile);
-      soundRef.current = sound;
-      await sound.playAsync();
-    } catch (error) {
-      // Silently continue if sound playback fails
-      console.warn('Error playing sound:', error);
-    }
+    // Sounds temporarily disabled - no audio files available
+    return;
   };
 
   // Update recording time display
@@ -223,6 +221,22 @@ export default function MainScreen() {
         error: null,
       });
 
+      // Check if Whisper is ready, initialize if needed
+      if (!isWhisperReady()) {
+        setProcessingState((prev) => ({
+          ...prev,
+          message: 'Initializing speech recognition...',
+        }));
+
+        try {
+          await initWhisper();
+        } catch (initError) {
+          throw new Error(
+            'Failed to initialize speech recognition. Please ensure a language model is downloaded in Settings.'
+          );
+        }
+      }
+
       // Transcribe audio
       const transcriptionResult = await transcribeAudio(audioUri, (progress) => {
         setProcessingState((prev) => ({
@@ -292,10 +306,13 @@ export default function MainScreen() {
         // Extract base64 from data URI
         const base64 = generatedImage.split(',')[1];
 
-        await printerService.printImage(base64, {
-          alignment: 'center',
-          copies: 1,
-        });
+        const service = await getPrinterService();
+        if (service) {
+          await service.printImage(base64, {
+            alignment: 'center',
+            copies: 1,
+          });
+        }
 
         setProcessingState((prev) => ({
           ...prev,
@@ -707,13 +724,16 @@ export default function MainScreen() {
 
             {connectedPrinter && (
               <TouchableOpacity
-                onPress={() => {
+                onPress={async () => {
                   if (processingState.generatedImage) {
                     const base64 = processingState.generatedImage.split(',')[1];
-                    printerService.printImage(base64, {
-                      alignment: 'center',
-                      copies: 1,
-                    });
+                    const service = await getPrinterService();
+                    if (service) {
+                      await service.printImage(base64, {
+                        alignment: 'center',
+                        copies: 1,
+                      });
+                    }
                   }
                 }}
                 activeOpacity={0.8}

@@ -11,13 +11,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import {
-  printerService,
+import type {
   BluetoothPrinterDevice,
   ScanResult,
   ConnectedPrinterInfo,
 } from '../../services/printer.service';
 import { THEME } from '../_layout';
+
+// Lazy load printer service to avoid crashes if Bluetooth module isn't available
+let printerServiceInstance: any = null;
+const getPrinterService = async () => {
+  if (!printerServiceInstance) {
+    try {
+      const { printerService } = await import('../../services/printer.service');
+      printerServiceInstance = printerService;
+    } catch (error) {
+      console.warn('Printer service not available:', error);
+      return null;
+    }
+  }
+  return printerServiceInstance;
+};
 
 type ScanStatus = 'idle' | 'scanning' | 'error';
 
@@ -51,11 +65,14 @@ export default function PrinterScreen() {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const printer = await printerService.getConnectedPrinter();
-        setState((prev) => ({
-          ...prev,
-          connectedPrinter: printer,
-        }));
+        const service = await getPrinterService();
+        if (service) {
+          const printer = await service.getConnectedPrinter();
+          setState((prev) => ({
+            ...prev,
+            connectedPrinter: printer,
+          }));
+        }
       } catch (error) {
         console.warn('Error checking printer connection:', error);
       }
@@ -74,7 +91,11 @@ export default function PrinterScreen() {
         devices: [],
       }));
 
-      const result: ScanResult = await printerService.scanPrinters();
+      const service = await getPrinterService();
+      if (!service) {
+        throw new Error('Printer service not available');
+      }
+      const result: ScanResult = await service.scanPrinters();
 
       // Combine paired and unpaired devices
       const allDevices = [
@@ -84,7 +105,7 @@ export default function PrinterScreen() {
 
       // Remove duplicates by address
       const uniqueDevices = Array.from(
-        new Map(allDevices.map((item) => [item.address, item])).values()
+        new Map(allDevices.map((item) => [item.innerMacAddress, item])).values()
       );
 
       setState((prev) => ({
@@ -121,7 +142,11 @@ export default function PrinterScreen() {
         selectedDevice: device,
       }));
 
-      const printerInfo = await printerService.connectToPrinter(device);
+      const service = await getPrinterService();
+      if (!service) {
+        throw new Error('Printer service not available');
+      }
+      const printerInfo = await service.connectToPrinter(device);
 
       setState((prev) => ({
         ...prev,
@@ -174,7 +199,10 @@ export default function PrinterScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await printerService.disconnectPrinter();
+              const service = await getPrinterService();
+              if (service) {
+                await service.disconnectPrinter();
+              }
               setState((prev) => ({
                 ...prev,
                 connectedPrinter: null,
@@ -194,11 +222,15 @@ export default function PrinterScreen() {
   // Test print
   const handleTestPrint = async () => {
     try {
+      const service = await getPrinterService();
+      if (!service) {
+        throw new Error('Printer service not available');
+      }
       // Print test pattern
-      await printerService.printText('TEST PRINT', 'center');
-      await printerService.printLineBreak(2);
-      await printerService.printText('Sticker Dream', 'center');
-      await printerService.printLineBreak(4);
+      await service.printText('TEST PRINT', 'center');
+      await service.printLineBreak(2);
+      await service.printText('Sticker Dream', 'center');
+      await service.printLineBreak(4);
 
       setState((prev) => ({
         ...prev,
@@ -475,10 +507,10 @@ export default function PrinterScreen() {
             <View style={{ gap: 8 }}>
               {state.devices.map((device) => (
                 <TouchableOpacity
-                  key={device.address}
+                  key={device.innerMacAddress}
                   onPress={() => handleConnectPrinter(device)}
                   disabled={
-                    state.isConnecting && state.selectedDevice?.address === device.address
+                    state.isConnecting && state.selectedDevice?.innerMacAddress === device.innerMacAddress
                   }
                   activeOpacity={0.7}
                   style={{
@@ -490,7 +522,7 @@ export default function PrinterScreen() {
                     alignItems: 'center',
                     opacity:
                       state.isConnecting &&
-                      state.selectedDevice?.address === device.address
+                      state.selectedDevice?.innerMacAddress === device.innerMacAddress
                         ? 0.6
                         : 1,
                   }}
@@ -504,7 +536,7 @@ export default function PrinterScreen() {
                         marginBottom: 2,
                       }}
                     >
-                      {device.name}
+                      {device.deviceName}
                     </Text>
                     <Text
                       style={{
@@ -513,12 +545,12 @@ export default function PrinterScreen() {
                         opacity: 0.6,
                       }}
                     >
-                      {device.address}
+                      {device.innerMacAddress}
                     </Text>
                   </View>
 
                   {state.isConnecting &&
-                  state.selectedDevice?.address === device.address ? (
+                  state.selectedDevice?.innerMacAddress === device.innerMacAddress ? (
                     <ActivityIndicator color={THEME.text} size="small" />
                   ) : (
                     <Text style={{ fontSize: 18 }}>→</Text>

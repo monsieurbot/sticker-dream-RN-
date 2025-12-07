@@ -1,11 +1,30 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, PermissionsAndroid, Permission } from 'react-native';
-import { BluetoothEscposPrinter } from 'react-native-bluetooth-escpos-printer';
+
+// Lazy load Bluetooth module to avoid crashes on startup
+let BLEPrinter: any = null;
+try {
+  const module = require('@conodene/react-native-thermal-receipt-printer-image-qr');
+  BLEPrinter = module.BLEPrinter;
+} catch (error) {
+  console.warn('Bluetooth printer module not available:', error);
+  // Create a mock module that throws helpful errors
+  BLEPrinter = {
+    init: () => Promise.reject(new Error('Bluetooth module not available')),
+    getDeviceList: () => Promise.reject(new Error('Bluetooth module not available')),
+    connectPrinter: () => Promise.reject(new Error('Bluetooth module not available')),
+    closeConn: () => Promise.reject(new Error('Bluetooth module not available')),
+    printImageBase64: () => Promise.reject(new Error('Bluetooth module not available')),
+    printImage: () => Promise.reject(new Error('Bluetooth module not available')),
+    printText: () => Promise.reject(new Error('Bluetooth module not available')),
+  };
+}
 
 // Type definitions
 export interface BluetoothPrinterDevice {
-  address: string;
-  name: string;
+  innerMacAddress: string;
+  macAddress?: string;
+  deviceName: string;
   isConnected?: boolean;
 }
 
@@ -18,8 +37,10 @@ export interface ConnectedPrinterInfo {
 
 export interface PrintOptions {
   imageWidth?: number;
+  imageHeight?: number;
   alignment?: 'left' | 'center' | 'right';
   copies?: number;
+  paddingX?: number;
 }
 
 export interface ScanResult {
@@ -31,10 +52,9 @@ type PermissionStatus = 'granted' | 'denied' | 'never_asked_again';
 
 class PrinterService {
   private connectedPrinter: BluetoothPrinterDevice | null = null;
-  private scanTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly STORAGE_KEY = 'connected_printer_info';
   private readonly PHOMEMO_PM2_WIDTH = 384; // pixels
-  private readonly SCAN_TIMEOUT = 10000; // 10 seconds
+  private isInitialized = false;
 
   /**
    * Request necessary Bluetooth permissions
@@ -84,6 +104,27 @@ class PrinterService {
   }
 
   /**
+   * Initialize BLE printer
+   */
+  private async initPrinter(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+
+    try {
+      await BLEPrinter.init();
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Error initializing BLE printer:', error);
+      throw new Error(
+        `Failed to initialize BLE printer: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
+    }
+  }
+
+  /**
    * Scan for available Bluetooth printers
    * Returns both paired and unpaired devices
    */
@@ -97,92 +138,33 @@ class PrinterService {
         );
       }
 
-      // Get paired devices
-      let pairedDevices: BluetoothPrinterDevice[] = [];
-      let unpairedDevices: BluetoothPrinterDevice[] = [];
+      // Initialize printer
+      await this.initPrinter();
 
-      try {
-        const paired = await BluetoothEscposPrinter.getPrinterSerialNumber();
-        if (paired && typeof paired === 'object') {
-          pairedDevices = [];
-        }
-      } catch (error) {
-        // Try alternative method for getting paired devices
-      }
+      // Get device list
+      const devices = await BLEPrinter.getDeviceList();
 
-      // Start scanning for unpaired devices
-      try {
-        unpairedDevices = await this.performDeviceScan();
-      } catch (error) {
-        console.error('Error scanning for devices:', error);
-        throw new Error(
-          `Failed to scan for Bluetooth printers: ${
-            error instanceof Error ? error.message : 'Unknown error'
-          }`
-        );
-      }
+      // Transform to our format
+      const printers: BluetoothPrinterDevice[] = devices.map((device: any) => ({
+        innerMacAddress: device.innerMacAddress || device.macAddress || '',
+        macAddress: device.macAddress,
+        deviceName: device.deviceName || device.name || 'Unknown Device',
+        isConnected: false,
+      }));
 
-      // Combine results
-      const result: ScanResult = {
-        paired: pairedDevices.length > 0 ? pairedDevices : unpairedDevices,
-        unpaired: unpairedDevices,
+      // For simplicity, return all devices as paired
+      return {
+        paired: printers,
+        unpaired: [],
       };
-
-      return result;
     } catch (error) {
       console.error('Error scanning for printers:', error);
-      throw error;
+      throw new Error(
+        `Failed to scan for Bluetooth printers: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
-  }
-
-  /**
-   * Perform the actual device scan with timeout
-   */
-  private async performDeviceScan(): Promise<BluetoothPrinterDevice[]> {
-    return new Promise((resolve, reject) => {
-      const devices: BluetoothPrinterDevice[] = [];
-
-      // Set timeout for scan
-      this.scanTimeout = setTimeout(() => {
-        reject(new Error('Bluetooth scan timeout'));
-      }, this.SCAN_TIMEOUT);
-
-      try {
-        // Use the built-in scan functionality
-        BluetoothEscposPrinter.scan()
-          .then((scannedDevices: any) => {
-            if (this.scanTimeout) {
-              clearTimeout(this.scanTimeout);
-              this.scanTimeout = null;
-            }
-
-            if (Array.isArray(scannedDevices)) {
-              scannedDevices.forEach((device: any) => {
-                devices.push({
-                  address: device.address || device.macAddress || '',
-                  name: device.name || 'Unknown Device',
-                  isConnected: false,
-                });
-              });
-            }
-
-            resolve(devices);
-          })
-          .catch((error: any) => {
-            if (this.scanTimeout) {
-              clearTimeout(this.scanTimeout);
-              this.scanTimeout = null;
-            }
-            reject(error);
-          });
-      } catch (error) {
-        if (this.scanTimeout) {
-          clearTimeout(this.scanTimeout);
-          this.scanTimeout = null;
-        }
-        reject(error);
-      }
-    });
   }
 
   /**
@@ -192,30 +174,26 @@ class PrinterService {
     device: BluetoothPrinterDevice
   ): Promise<ConnectedPrinterInfo> {
     try {
-      if (!device.address) {
+      if (!device.innerMacAddress) {
         throw new Error('Invalid device address');
       }
 
+      // Initialize printer if needed
+      await this.initPrinter();
+
       // Attempt connection
-      await BluetoothEscposPrinter.connectPrinter(device.address);
-
-      // Verify connection
-      const connectionInfo = await this.verifyConnection();
-
-      if (!connectionInfo) {
-        throw new Error('Failed to verify printer connection');
-      }
+      await BLEPrinter.connectPrinter(device.innerMacAddress);
 
       // Store in memory
       this.connectedPrinter = device;
 
       // Determine printer model
-      const model = this.detectPrinterModel(device.name);
+      const model = this.detectPrinterModel(device.deviceName);
 
       // Store in AsyncStorage
       const printerInfo: ConnectedPrinterInfo = {
-        address: device.address,
-        name: device.name,
+        address: device.innerMacAddress,
+        name: device.deviceName,
         model,
         connectedAt: new Date().toISOString(),
       };
@@ -226,23 +204,10 @@ class PrinterService {
     } catch (error) {
       console.error('Error connecting to printer:', error);
       throw new Error(
-        `Failed to connect to printer "${device.name}": ${
+        `Failed to connect to printer "${device.deviceName}": ${
           error instanceof Error ? error.message : 'Unknown error'
         }`
       );
-    }
-  }
-
-  /**
-   * Verify that the printer is actually connected
-   */
-  private async verifyConnection(): Promise<boolean> {
-    try {
-      // Try to get printer serial number as a connection check
-      const result = await BluetoothEscposPrinter.getPrinterSerialNumber();
-      return !!result;
-    } catch (error) {
-      return false;
     }
   }
 
@@ -252,12 +217,16 @@ class PrinterService {
   private detectPrinterModel(deviceName: string): string {
     const nameLower = deviceName.toLowerCase();
 
-    if (nameLower.includes('phomemo') || nameLower.includes('pm2')) {
+    if (nameLower.includes('phomemo') && nameLower.includes('pm2')) {
       return 'Phomemo PM2';
     }
 
-    if (nameLower.includes('phomemo') || nameLower.includes('pm1')) {
+    if (nameLower.includes('phomemo') && nameLower.includes('pm1')) {
       return 'Phomemo PM1';
+    }
+
+    if (nameLower.includes('phomemo')) {
+      return 'Phomemo';
     }
 
     if (
@@ -280,7 +249,7 @@ class PrinterService {
         throw new Error('No printer currently connected');
       }
 
-      await BluetoothEscposPrinter.closeConn();
+      await BLEPrinter.closeConn();
 
       // Clear from AsyncStorage
       await AsyncStorage.removeItem(this.STORAGE_KEY);
@@ -316,35 +285,27 @@ class PrinterService {
       const imageWidth = this.determineImageWidth(options.imageWidth);
 
       // Default options
-      const alignment = options.alignment || 'center';
       const copies = Math.max(1, options.copies || 1);
 
-      // Parse alignment to printer value
-      const alignmentValue =
-        alignment === 'left'
-          ? 0
-          : alignment === 'right'
-            ? 2
-            : 1; // center is default (1)
+      // Build print options for the library
+      const printOptions = {
+        imageWidth: imageWidth,
+        imageHeight: options.imageHeight || 0, // 0 = auto height
+        paddingX: options.paddingX || 0,
+      };
 
       // Print the image
       for (let i = 0; i < copies; i++) {
-        await BluetoothEscposPrinter.printPic(cleanBase64, {
-          width: imageWidth,
-          height: 0, // Auto height based on aspect ratio
-          paddingX: 0,
-          paddingY: 0,
-          align: alignmentValue,
-        });
+        await BLEPrinter.printImageBase64(cleanBase64, printOptions);
 
         // Add line break between copies
         if (i < copies - 1) {
-          await BluetoothEscposPrinter.printText('\n\n\n');
+          await BLEPrinter.printText('\n\n\n', {});
         }
       }
 
       // Print final line breaks for paper feed
-      await BluetoothEscposPrinter.printText('\n\n');
+      await BLEPrinter.printText('\n\n', {});
     } catch (error) {
       console.error('Error printing image:', error);
       throw new Error(
@@ -378,12 +339,12 @@ class PrinterService {
     // Check connected printer model
     if (
       this.connectedPrinter &&
-      this.detectPrinterModel(this.connectedPrinter.name) === 'Phomemo PM2'
+      this.detectPrinterModel(this.connectedPrinter.deviceName) === 'Phomemo PM2'
     ) {
       return this.PHOMEMO_PM2_WIDTH;
     }
 
-    // Default width for thermal printers
+    // Default width for thermal printers (58mm = ~384px)
     return 384;
   }
 
@@ -394,10 +355,10 @@ class PrinterService {
     try {
       // First check in-memory cache
       if (this.connectedPrinter) {
-        const model = this.detectPrinterModel(this.connectedPrinter.name);
+        const model = this.detectPrinterModel(this.connectedPrinter.deviceName);
         return {
-          address: this.connectedPrinter.address,
-          name: this.connectedPrinter.name,
+          address: this.connectedPrinter.innerMacAddress,
+          name: this.connectedPrinter.deviceName,
           model,
           connectedAt: new Date().toISOString(),
         };
@@ -407,22 +368,7 @@ class PrinterService {
       const stored = await AsyncStorage.getItem(this.STORAGE_KEY);
       if (stored) {
         const printerInfo = JSON.parse(stored) as ConnectedPrinterInfo;
-
-        // Verify the connection is still active
-        const isConnected = await this.verifyConnection();
-        if (isConnected) {
-          // Restore in-memory cache
-          this.connectedPrinter = {
-            address: printerInfo.address,
-            name: printerInfo.name,
-            isConnected: true,
-          };
-          return printerInfo;
-        } else {
-          // Printer was disconnected externally
-          await AsyncStorage.removeItem(this.STORAGE_KEY);
-          return null;
-        }
+        return printerInfo;
       }
 
       return null;
@@ -446,8 +392,8 @@ class PrinterService {
 
       // Attempt connection
       const device: BluetoothPrinterDevice = {
-        address: printerInfo.address,
-        name: printerInfo.name,
+        innerMacAddress: printerInfo.address,
+        deviceName: printerInfo.name,
       };
 
       return await this.connectToPrinter(device);
@@ -464,7 +410,7 @@ class PrinterService {
    */
   async isPrinterConnected(): Promise<boolean> {
     try {
-      return this.connectedPrinter !== null && (await this.verifyConnection());
+      return this.connectedPrinter !== null;
     } catch {
       return false;
     }
@@ -479,16 +425,9 @@ class PrinterService {
         throw new Error('No printer connected. Please connect to a printer first.');
       }
 
-      const alignmentValue =
-        alignment === 'left'
-          ? 0
-          : alignment === 'right'
-            ? 2
-            : 1; // center
-
-      await BluetoothEscposPrinter.printText(text, {
-        align: alignmentValue,
-      });
+      // The library doesn't support alignment in printText directly
+      // You would need to use formatted XML or print commands
+      await BLEPrinter.printText(text, {});
     } catch (error) {
       console.error('Error printing text:', error);
       throw new Error(
@@ -509,31 +448,11 @@ class PrinterService {
       }
 
       const lineBreaks = '\n'.repeat(lines);
-      await BluetoothEscposPrinter.printText(lineBreaks);
+      await BLEPrinter.printText(lineBreaks, {});
     } catch (error) {
       console.error('Error printing line breaks:', error);
       throw new Error(
         `Failed to print line breaks: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
-    }
-  }
-
-  /**
-   * Reset printer
-   */
-  async resetPrinter(): Promise<void> {
-    try {
-      if (!this.connectedPrinter) {
-        throw new Error('No printer connected. Please connect to a printer first.');
-      }
-
-      await BluetoothEscposPrinter.printerInit();
-    } catch (error) {
-      console.error('Error resetting printer:', error);
-      throw new Error(
-        `Failed to reset printer: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`
       );
@@ -550,7 +469,7 @@ class PrinterService {
       }
 
       const feedCommand = '\n'.repeat(Math.max(1, lines));
-      await BluetoothEscposPrinter.printText(feedCommand);
+      await BLEPrinter.printText(feedCommand, {});
     } catch (error) {
       console.error('Error feeding paper:', error);
       throw new Error(

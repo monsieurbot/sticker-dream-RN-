@@ -1,7 +1,9 @@
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
-import { Whisper } from 'whisper.rn';
-import { getCurrentModelFilename, isModelDownloaded, getLanguage } from './language.service';
+import { initWhisper as initWhisperRN } from 'whisper.rn';
+import type { WhisperContext } from 'whisper.rn';
+import { getCurrentModelFilename, getCurrentModelPath, isModelDownloaded, getLanguage } from './language.service';
+import { getModelByType } from '../types/whisper.types';
 
 /**
  * Transcription result from Whisper speech-to-text processing
@@ -56,7 +58,7 @@ interface RecordingState {
  * Whisper service for speech-to-text transcription
  */
 class WhisperService {
-  private whisper: Whisper | null = null;
+  private whisperContext: WhisperContext | null = null;
   private recordingState: RecordingState = {
     recording: null,
     isRecording: false,
@@ -75,11 +77,19 @@ class WhisperService {
    */
   async initWhisper(): Promise<void> {
     try {
-      // Get current language preference
+      // Get current language preference and model path
+      const modelPath = await getCurrentModelPath();
       const modelFilename = await getCurrentModelFilename();
 
+      console.log('🎤 Initializing Whisper:', {
+        modelPath,
+        modelFilename,
+        isInitialized: this.isInitialized,
+      });
+
       // If already initialized with the same model, skip re-initialization
-      if (this.isInitialized && this.whisper && this.currentModelFilename === modelFilename) {
+      if (this.isInitialized && this.whisperContext && this.currentModelFilename === modelFilename) {
+        console.log('✅ Whisper already initialized with this model');
         return;
       }
 
@@ -87,22 +97,33 @@ class WhisperService {
       const languagePreference = await getLanguage();
       const modelDownloaded = await isModelDownloaded(languagePreference.modelType);
 
+      console.log('📦 Model check:', {
+        languageCode: languagePreference.languageCode,
+        modelType: languagePreference.modelType,
+        modelDownloaded,
+      });
+
       if (!modelDownloaded) {
         throw new Error(
           `Model not found: ${modelFilename}. Please download the model in Settings.`
         );
       }
 
-      // Initialize Whisper with selected model
-      this.whisper = new Whisper({
-        model: modelFilename,
+      // Initialize Whisper with selected model using the correct API
+      console.log('🚀 Initializing Whisper with filePath:', modelPath);
+
+      this.whisperContext = await initWhisperRN({
+        filePath: modelPath,
       });
 
       this.currentModelFilename = modelFilename;
       this.isInitialized = true;
+
+      console.log('✅ Whisper initialized successfully!');
     } catch (error) {
+      console.error('❌ Whisper initialization failed:', error);
       this.isInitialized = false;
-      this.whisper = null;
+      this.whisperContext = null;
       this.currentModelFilename = null;
       throw new Error(
         `Failed to initialize Whisper: ${error instanceof Error ? error.message : String(error)}`
@@ -120,7 +141,7 @@ class WhisperService {
   async reloadModel(): Promise<void> {
     // Reset initialization state to force reload
     this.isInitialized = false;
-    this.whisper = null;
+    this.whisperContext = null;
     this.currentModelFilename = null;
 
     // Re-initialize with new model
@@ -283,17 +304,30 @@ class WhisperService {
   ): Promise<TranscriptionResult> {
     const startTime = Date.now();
 
+    console.log('=== 🎤 TRANSCRIBE AUDIO START ===');
+    console.log('Audio URI:', audioUri);
+    console.log('Is initialized:', this.isInitialized);
+    console.log('Has context:', !!this.whisperContext);
+
     try {
       // Verify Whisper is initialized
-      if (!this.whisper || !this.isInitialized) {
+      if (!this.whisperContext || !this.isInitialized) {
+        console.error('❌ Whisper not initialized!');
         throw new Error('Whisper not initialized. Call initWhisper() first');
       }
 
+      console.log('✅ Whisper is initialized');
+
       // Verify audio file exists
+      console.log('📁 Checking audio file...');
       const fileInfo = await FileSystem.getInfoAsync(audioUri);
+      console.log('File info:', fileInfo);
+
       if (!fileInfo.exists) {
         throw new Error(`Audio file not found: ${audioUri}`);
       }
+
+      console.log('✅ Audio file exists');
 
       // Report transcription start
       onProgress?.({
@@ -312,8 +346,44 @@ class WhisperService {
         message: 'Transcribing audio...',
       });
 
-      // Perform transcription
-      const result = await this.whisper.transcribe(audioUri);
+      console.log('📋 Getting language preference...');
+      // Get language for transcription options
+      const languagePreference = await getLanguage();
+      console.log('Language preference:', languagePreference);
+
+      const transcribeOptions: any = {};
+
+      console.log('📋 Getting model by type...');
+      // Add language hint for multilingual models
+      const model = getModelByType(languagePreference.modelType);
+      console.log('Model:', model);
+
+      if (model && model.isMultilingual) {
+        transcribeOptions.language = languagePreference.languageCode;
+      }
+
+      console.log('🎯 Transcribing with options:', transcribeOptions);
+      console.log('🎯 Whisper context:', this.whisperContext);
+      console.log('🎯 Audio URI:', audioUri);
+
+      // Verify whisperContext exists and has transcribe method
+      if (!this.whisperContext) {
+        throw new Error('Whisper context is null');
+      }
+
+      if (typeof this.whisperContext.transcribe !== 'function') {
+        console.error('❌ whisperContext.transcribe is not a function!');
+        console.error('Available methods:', Object.keys(this.whisperContext));
+        throw new Error('transcribe is not a function on whisperContext');
+      }
+
+      // Perform transcription using the correct API
+      console.log('📝 Calling whisperContext.transcribe...');
+      const transcribeResult = this.whisperContext.transcribe(audioUri, transcribeOptions);
+      console.log('📝 Transcribe result:', transcribeResult);
+
+      const { promise } = transcribeResult;
+      const transcriptionResult = await promise;
 
       // Report processing in progress
       onProgress?.({
@@ -323,7 +393,7 @@ class WhisperService {
       });
 
       // Extract text and clean it
-      const text = result.result ?? '';
+      const text = transcriptionResult?.result ?? '';
       const cleanedText = this.normalizeText(text);
 
       // Check for abort commands
@@ -447,11 +517,18 @@ class WhisperService {
     try {
       await this.cancelRecording();
       // Reset state
-      this.whisper = null;
+      this.whisperContext = null;
       this.isInitialized = false;
     } catch (error) {
       console.warn('Error during cleanup:', error);
     }
+  }
+
+  /**
+   * Check if Whisper is initialized and ready to use
+   */
+  isReady(): boolean {
+    return this.isInitialized && this.whisperContext !== null;
   }
 }
 
@@ -577,6 +654,22 @@ export async function cancelRecording(): Promise<void> {
  */
 export async function reloadModel(): Promise<void> {
   return whisperService.reloadModel();
+}
+
+/**
+ * Check if Whisper is initialized and ready to use
+ *
+ * @returns true if Whisper is ready, false otherwise
+ *
+ * @example
+ * ```typescript
+ * if (isWhisperReady()) {
+ *   await transcribeAudio(audioUri);
+ * }
+ * ```
+ */
+export function isWhisperReady(): boolean {
+  return whisperService.isReady();
 }
 
 /**

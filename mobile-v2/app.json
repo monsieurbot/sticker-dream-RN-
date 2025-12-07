@@ -14,6 +14,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.stickerdream.app",
+      "appleTeamId": "5F3F3Q9Y2Q",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Sticker Dream needs microphone access to record your sticker descriptions",
         "NSBluetoothAlwaysUsageDescription": "Sticker Dream needs Bluetooth access to print to your thermal printer",
